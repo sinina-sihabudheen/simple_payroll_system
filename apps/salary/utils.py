@@ -1,6 +1,6 @@
 from decimal import Decimal
 from apps.employees.models import EmployeeDeduction
-from apps.attendance.models import Attendance
+from apps.attendance.models import Attendance, Leave
 from datetime import date
 from calendar import monthrange
 
