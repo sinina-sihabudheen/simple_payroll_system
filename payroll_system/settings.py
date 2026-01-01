@@ -31,6 +31,10 @@ DEBUG = os.getenv('DEBUG') == 'True'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
 
+# ESSL Device Configuration
+ESSL_DEVICE_IP = os.getenv('ESSL_DEVICE_IP', '192.168.1.201')
+ESSL_DEVICE_PORT = int(os.getenv('ESSL_DEVICE_PORT', 4370))
+
 
 # Application definition
 

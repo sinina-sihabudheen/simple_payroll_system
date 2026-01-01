@@ -38,13 +38,22 @@ class EsslPunchViewSet(viewsets.ModelViewSet):
     queryset = EsslPunch.objects.all()
     serializer_class = EsslPunchSerializer
 
+from .utils.essl_reader import fetch_essl_data
+
 class SyncEsslToAttendance(APIView):
     def post(self, request):
+        # First, try to fetch new data from the device
+        success, message = fetch_essl_data()
+        
+        # Even if fetching fails (e.g., device offline), we process existing logs
+        # but we should warn the user.
+        
         punch_map = defaultdict(list)
         for punch in EsslPunch.objects.all():
             punch_date = punch.punch_time.date()
             punch_map[(punch.employee_code, punch_date)].append(punch.punch_time.time())
 
+        updated_count = 0
         for (emp_code, punch_date), times in punch_map.items():
             try:
                 employee = EmployeeProfile.objects.get(employee_code=emp_code)
@@ -58,10 +67,18 @@ class SyncEsslToAttendance(APIView):
                         'marked_manually': False
                     }
                 )
+                updated_count += 1
             except EmployeeProfile.DoesNotExist:
                 continue
 
-        return Response({'detail': 'ESSL synced to attendance.'})
+        response_data = {
+            'detail': 'ESSL synced to attendance.',
+            'device_status': message,
+            'records_processed': updated_count
+        }
+        
+        status_code = status.HTTP_200_OK if success else status.HTTP_207_MULTI_STATUS
+        return Response(response_data, status=status_code)
 
 
 class AttendanceByDate(APIView):
