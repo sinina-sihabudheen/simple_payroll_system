@@ -99,7 +99,7 @@ class AttendanceByDate(APIView):
             attendance = Attendance.objects.filter(employee=emp, date=date_obj).first()
             response_data.append({
                 "employee_id": emp.id,
-                "employee_name": f"{emp.first_name} {emp.last_name}",
+                "employee_name": f"{emp.name}",
                 "employee_code": emp.employee_code,
                 "attendance": AttendanceSerializer(attendance).data if attendance else None
             })
