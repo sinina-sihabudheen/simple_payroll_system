@@ -1,6 +1,6 @@
 from rest_framework import viewsets
 from rest_framework.views import APIView
-from .models import Attendance, Leave, LeaveType, EsslPunch
+from .models import Attendance, Leave, LeaveType, EsslPunch, EsslConfig
 from apps.employees.models import EmployeeProfile  
 from rest_framework.response import Response
 from datetime import date, datetime
@@ -80,6 +80,23 @@ class SyncEsslToAttendance(APIView):
         status_code = status.HTTP_200_OK if success else status.HTTP_207_MULTI_STATUS
         return Response(response_data, status=status_code)
 
+class EsslConfigView(APIView):
+    def get(self, request):
+        cfg = EsslConfig.objects.first()
+        if not cfg:
+            cfg = EsslConfig.objects.create()
+        serializer = EsslConfigSerializer(cfg)
+        return Response(serializer.data)
+
+    def post(self, request):
+        cfg = EsslConfig.objects.first()
+        if not cfg:
+            cfg = EsslConfig()
+        serializer = EsslConfigSerializer(cfg, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class AttendanceByDate(APIView):
     def get(self, request):

@@ -30,3 +30,11 @@ class Leave(models.Model):
 class EsslPunch(models.Model):
     employee_code = models.CharField(max_length=20)
     punch_time = models.DateTimeField()
+
+class EsslConfig(models.Model):
+    device_ip = models.CharField(max_length=100, default='192.168.1.201')
+    device_port = models.IntegerField(default=4370)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.device_ip}:{self.device_port}"

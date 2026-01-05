@@ -7,7 +7,8 @@ from .views import (
     EsslPunchViewSet,
     SyncEsslToAttendance,
     AttendanceByDate,
-    MarkAttendanceManually
+    MarkAttendanceManually,
+    EsslConfigView
 )
 
 
@@ -21,6 +22,7 @@ urlpatterns = [
     path('sync-essl/', SyncEsslToAttendance.as_view(), name='sync_essl'),
     path('attendance-by-date/', AttendanceByDate.as_view(), name='attendance_by_date'),
     path('mark-attendance/', MarkAttendanceManually.as_view(), name='mark_attendance'),
+    path('essl-config/', EsslConfigView.as_view(), name='essl_config'),
 
 
     path('', include(router.urls)),

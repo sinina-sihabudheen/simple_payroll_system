@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Attendance, Leave, LeaveType, EsslPunch
+from .models import Attendance, Leave, LeaveType, EsslPunch, EsslConfig
 
 class AttendanceSerializer(serializers.ModelSerializer):
     employee_name = serializers.SerializerMethodField()
@@ -33,3 +33,8 @@ class EsslPunchSerializer(serializers.ModelSerializer):
     class Meta:
         model = EsslPunch
         fields = '__all__'
+
+class EsslConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EsslConfig
+        fields = ['id', 'device_ip', 'device_port', 'updated_at']

@@ -1,6 +1,6 @@
 from zk import ZK, const
 from datetime import datetime
-from apps.attendance.models import EsslPunch
+from apps.attendance.models import EsslPunch, EsslConfig
 from apps.employees.models import EmployeeProfile
 from django.conf import settings
 
@@ -9,8 +9,9 @@ def fetch_essl_data():
     Connects to the ESSL device, fetches attendance logs, and saves them to the database.
     Returns a tuple (success, message).
     """
-    device_ip = getattr(settings, 'ESSL_DEVICE_IP', '192.168.1.201')
-    device_port = getattr(settings, 'ESSL_DEVICE_PORT', 4370)
+    cfg = EsslConfig.objects.first()
+    device_ip = cfg.device_ip if cfg else getattr(settings, 'ESSL_DEVICE_IP', '192.168.1.201')
+    device_port = cfg.device_port if cfg else getattr(settings, 'ESSL_DEVICE_PORT', 4370)
     
     zk = ZK(device_ip, port=device_port, timeout=5)
     
