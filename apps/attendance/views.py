@@ -136,13 +136,8 @@ class MarkAttendanceManually(APIView):
         if attendance_date_obj < employee.date_of_joining:
             return Response({"error": "Cannot mark attendance before employee's date of joining."}, status=400)
 
-        is_today = attendance_date_obj == date.today()
-
-        if is_present:
-            if is_today and not in_time:
-                return Response({"error": "In time is required for today's attendance."}, status=400)
-            if not is_today and (not in_time or not out_time):
-                return Response({"error": "Both in and out time are required for past attendance."}, status=400)
+        if is_present and not in_time:
+            return Response({"error": "In time is required for attendance."}, status=400)
 
         attendance, created = Attendance.objects.update_or_create(
             employee=employee,
