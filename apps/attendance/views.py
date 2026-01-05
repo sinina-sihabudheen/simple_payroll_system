@@ -7,6 +7,8 @@ from datetime import date, datetime
 from rest_framework import status
 from .serializers import *
 from collections import defaultdict
+from django.http import HttpResponse
+import io
 
 class AttendanceViewSet(viewsets.ModelViewSet):
     queryset = Attendance.objects.all()
@@ -169,3 +171,118 @@ class MarkAttendanceManually(APIView):
 
         serializer = AttendanceSerializer(attendance)
         return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+class AttendanceMonthlyReportAPIView(APIView):
+    def get(self, request):
+        year = int(request.query_params.get("year"))
+        month = int(request.query_params.get("month"))
+        employees = EmployeeProfile.objects.all()
+        data = []
+        for emp in employees:
+            qs = Attendance.objects.filter(employee=emp, date__year=year, date__month=month)
+            present_days = qs.filter(is_present=True).count()
+            total_days = qs.count()
+            absent_days = max(0, total_days - present_days)
+            data.append({
+                "employee_id": emp.id,
+                "employee_name": emp.name,
+                "employee_code": emp.employee_code,
+                "present_days": present_days,
+                "absent_days": absent_days,
+                "month": month,
+                "year": year,
+            })
+        return Response(data)
+
+
+class AttendanceMonthlyReportPDFAPIView(APIView):
+    def get(self, request):
+        try:
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+            from reportlab.lib.pagesizes import A4
+            from reportlab.lib import colors
+            from reportlab.lib.styles import getSampleStyleSheet
+            import calendar
+        except ImportError:
+            return HttpResponse("PDF generation library not installed", status=501)
+        year = int(request.query_params.get("year"))
+        month = int(request.query_params.get("month"))
+        employees = EmployeeProfile.objects.all()
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        styles = getSampleStyleSheet()
+        elements = []
+        mname = calendar.month_name[month]
+        elements.append(Paragraph(f"Attendance report of month {mname} {year}", styles["Heading1"]))
+        elements.append(Spacer(1, 12))
+        data = [["Employee", "Code", "Present Days", "Absent Days"]]
+        for emp in employees:
+            qs = Attendance.objects.filter(employee=emp, date__year=year, date__month=month)
+            present_days = qs.filter(is_present=True).count()
+            total_days = qs.count()
+            absent_days = max(0, total_days - present_days)
+            data.append([emp.name, emp.employee_code, present_days, absent_days])
+        table = Table(data, repeatRows=1)
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.whitesmoke]),
+        ]))
+        elements.append(table)
+        doc.build(elements)
+        resp = HttpResponse(buffer.getvalue(), content_type="application/pdf")
+        resp['Content-Disposition'] = 'attachment; filename="attendance.pdf"'
+        resp['Content-Disposition'] = f'attachment; filename="attendance_report_{month:02d}_{year}.pdf"'
+        return resp
+
+class AttendanceMonthlyReportExcelAPIView(APIView):
+    def get(self, request):
+        try:
+            from openpyxl import Workbook
+            from openpyxl.utils import get_column_letter
+            from openpyxl.styles import Alignment
+            import calendar
+        except ImportError:
+            return HttpResponse("Excel generation library not installed", status=501)
+        year = int(request.query_params.get("year"))
+        month = int(request.query_params.get("month"))
+        employees = EmployeeProfile.objects.all()
+        wb = Workbook()
+        ws = wb.active
+        mname = calendar.month_name[month]
+        ws.title = f"Attendance {month:02d}-{year}"[:31]
+        headers = ["Employee", "Code", "Present Days", "Absent Days"]
+        transformed = []
+        for h in headers:
+            parts = h.split()
+            if len(parts) == 2:
+                transformed.append(f"{parts[0]}\n{parts[1]}")
+            else:
+                transformed.append(h)
+        ws.append(transformed)
+        for emp in employees:
+            qs = Attendance.objects.filter(employee=emp, date__year=year, date__month=month)
+            present_days = qs.filter(is_present=True).count()
+            total_days = qs.count()
+            absent_days = max(0, total_days - present_days)
+            ws.append([emp.name, emp.employee_code, present_days, absent_days])
+        for cell in ws[1]:
+            cell.alignment = Alignment(wrap_text=True, horizontal="center")
+        for col in range(1, len(headers) + 1):
+            max_length = 0
+            column = get_column_letter(col)
+            for cell in ws[column]:
+                val = str(cell.value) if cell.value is not None else ""
+                if len(val) > max_length:
+                    max_length = len(val)
+            ws.column_dimensions[column].width = min(max_length + 2, 25)
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        resp = HttpResponse(buffer.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        resp['Content-Disposition'] = f'attachment; filename="attendance_report_{month:02d}_{year}.xlsx"'
+        return resp

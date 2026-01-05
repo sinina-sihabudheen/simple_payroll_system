@@ -8,7 +8,10 @@ from .views import (
     SyncEsslToAttendance,
     AttendanceByDate,
     MarkAttendanceManually,
-    EsslConfigView
+    EsslConfigView,
+    AttendanceMonthlyReportAPIView,
+    AttendanceMonthlyReportPDFAPIView,
+    AttendanceMonthlyReportExcelAPIView
 )
 
 
@@ -23,6 +26,9 @@ urlpatterns = [
     path('attendance-by-date/', AttendanceByDate.as_view(), name='attendance_by_date'),
     path('mark-attendance/', MarkAttendanceManually.as_view(), name='mark_attendance'),
     path('essl-config/', EsslConfigView.as_view(), name='essl_config'),
+    path('reports/attendance/', AttendanceMonthlyReportAPIView.as_view(), name='attendance_report'),
+    path('reports/attendance.pdf', AttendanceMonthlyReportPDFAPIView.as_view(), name='attendance_report_pdf'),
+    path('reports/attendance.xlsx', AttendanceMonthlyReportExcelAPIView.as_view(), name='attendance_report_excel'),
 
 
     path('', include(router.urls)),
