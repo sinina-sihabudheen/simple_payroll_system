@@ -54,7 +54,24 @@ def compute_salary_results(year, month):
         advance_deduction, other_deductions = calculate_deductions(employee, year, month)
         total_deductions = advance_deduction + other_deductions
         total_salary = salary_on_attendance - total_deductions
-        previous_due = SalaryRecord.objects.filter(employee=employee, status="pending").exclude(year=year, month=month).aggregate(total_due=Sum('gross_salary'))['total_due'] or Decimal(0)
+
+       #Bug fix of balance amount
+
+        previous_due_records = SalaryRecord.objects.filter(
+            employee=employee,
+            status__in=["pending", "partially_paid"],
+        ).exclude(year=year, month=month)
+ 
+        previous_due = Decimal(0)
+        for rec in previous_due_records:
+            if rec.balance_amount and rec.balance_amount > 0:
+                previous_due += rec.balance_amount
+            else:
+                # Fallback: balance not yet computed, derive it
+                previous_due += max(Decimal(0), rec.gross_salary - (rec.paid_amount or Decimal(0)))
+
+        # previous_due = SalaryRecord.objects.filter(employee=employee, status="pending").exclude(year=year, month=month).aggregate(total_due=Sum('gross_salary'))['total_due'] or Decimal(0)
+        
         salary_record, created = SalaryRecord.objects.get_or_create(
             employee=employee,
             year=year,
@@ -109,12 +126,33 @@ def compute_salary_results(year, month):
         })
     return results
 
+# class GenerateSalaryAPIView(APIView):
+#     def post(self, request):
+#         year = int(request.data.get('year'))
+#         month = int(request.data.get('month'))
+#         results = compute_salary_results(year, month)
+#         return Response(results)
+
 class GenerateSalaryAPIView(APIView):
     def post(self, request):
-        year = int(request.data.get('year'))
-        month = int(request.data.get('month'))
+        # Input validation: return a clear 400 if year/month are missing or invalid
+        try:
+            year = int(request.data.get('year'))
+            month = int(request.data.get('month'))
+        except (TypeError, ValueError):
+            return Response(
+                {"error": "Both 'year' and 'month' are required and must be integers."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not (1 <= month <= 12):
+            return Response(
+                {"error": "month must be between 1 and 12."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+ 
         results = compute_salary_results(year, month)
         return Response(results)
+ 
 
 
 class PaySalaryAPIView(APIView):
@@ -124,7 +162,12 @@ class PaySalaryAPIView(APIView):
         except SalaryRecord.DoesNotExist:
             return Response({"error": "Salary record not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        paid_amount = Decimal(request.data.get("paid_amount", 0))
+        # paid_amount = Decimal(request.data.get("paid_amount", 0))
+        try:
+            paid_amount = Decimal(str(request.data.get("paid_amount", 0)))
+        except Exception:
+            return Response({"error": "paid_amount must be a valid number."}, status=status.HTTP_400_BAD_REQUEST)
+            
         total_to_pay = salary_record.gross_salary + salary_record.salary_due
 
         salary_record.paid_amount += paid_amount
